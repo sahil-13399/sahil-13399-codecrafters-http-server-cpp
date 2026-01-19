@@ -51,12 +51,14 @@ void handle_request(int client_fd, std::string directory) {
 
             if(split_request[0] == "POST") {
               // std::cout<<split_request[split_request.size() - 1]<<" "<<split_request[split_request.size() - 1].length()<<std::endl;
-              std::string body = split_request[split_request.size() - 1].substr(4);
+              int last_index = http_request.rfind("\r\n");
+              std::string body = http_request.substr(last_index + strlen("\r\n"));
               std::string filename = split_request[1].substr(7);
               std::string path = directory + filename;
               std::fstream file(path, std::ios::out);
               file<<body;
               const char* created_response = "HTTP/1.1 201 Created\r\n\r\n";
+              std::cout<<body<<std::endl;
               send(client_fd, created_response, strlen(created_response), 0);
               file.close();
             } else {
