@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <sstream>
 #include <string>
 #include <cstring>
 #include <unistd.h>
@@ -7,6 +8,17 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <vector>
+
+std::vector<std::string> split(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::stringstream ss(s);
+    while (std::getline(ss, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
@@ -53,14 +65,28 @@ int main(int argc, char **argv) {
   
   std::cout << "Waiting for a client to connect...\n";
   
-  int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-  std::cout << "Client connected\n";
+
   
   const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
-  
+  const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";
+
   char buffer[1024];
-  recv(client_fd, buffer, sizeof(buffer),0 );
-  send(client_fd, http_response, strlen(http_response), 0);
+  while(true) {
+      int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+      std::cout << "Client connected\n";
+
+      recv(client_fd, buffer, sizeof(buffer),0 );
+
+      std::string http_request(buffer);
+      std::vector<std::string> split_request = split(http_request,' ');
+
+      if(split_request[1] == "/") {
+          send(client_fd, http_response, strlen(http_response), 0);
+      } else {
+          send(client_fd, http_reject, strlen(http_reject), 0);
+      }
+      close(client_fd);
+  }
   close(server_fd);
 
   return 0;
