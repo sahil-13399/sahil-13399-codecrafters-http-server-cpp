@@ -75,13 +75,20 @@ int main(int argc, char **argv) {
       int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
       std::cout << "Client connected\n";
 
-      recv(client_fd, buffer, sizeof(buffer),0 );
-
+      ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
+      buffer[n] = '\0';
       std::string http_request(buffer);
       std::vector<std::string> split_request = split(http_request,' ');
 
       if(split_request[1] == "/") {
           send(client_fd, http_response, strlen(http_response), 0);
+      } else if(split_request[1].substr(0, 6) == "/echo/") {
+          //ECHO MESSAGE BACK in RESPONSE BODY
+          int len = split_request[1].length() - 6;
+          std::string message = std::string(http_response) + "Content-Type: text/plain\r\nContent-Length: ";
+          message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
+          std::cout<<message<<std::endl;
+          send(client_fd, message.c_str(), message.length(), 0);
       } else {
           send(client_fd, http_reject, strlen(http_reject), 0);
       }
