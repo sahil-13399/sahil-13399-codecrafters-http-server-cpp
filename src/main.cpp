@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -21,7 +22,7 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return tokens;
 }
 
-void handle_request(int client_fd) {
+void handle_request(int client_fd, std::string directory) {
     char buffer[1024];
     const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
     const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";    
@@ -46,6 +47,22 @@ void handle_request(int client_fd) {
             std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
             std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4) + "\r\n\r\n" + body;
             send(client_fd, message.c_str(), message.length(), 0);
+        } else if(split_request[1].substr(0, 7) == "/files/") {
+            std::string filename = split_request[1].substr(7);
+            std::string path = directory + filename;
+            std::fstream file(path, std::ios::in);
+            if (!file) {
+                std::cerr << "Error opening the file for writing.";
+                send(client_fd, http_reject, strlen(http_reject), 0);
+            } else {
+              std::string content = "";
+              std::string temp;
+              while(std::getline(file, temp)) {
+                content+=temp;
+              }
+              std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length()) + "\r\n\r\n" + content;
+              send(client_fd, message.c_str(), message.length(), 0);
+            }
         } else {
             send(client_fd, http_reject, strlen(http_reject), 0);
         }
@@ -99,7 +116,7 @@ int main(int argc, char **argv) {
 
   while(true) {
       int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-      std::thread(handle_request, client_fd).detach();
+      std::thread(handle_request, client_fd, argv[2]).detach();
   }
   close(server_fd);
 
