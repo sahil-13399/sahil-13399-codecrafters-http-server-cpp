@@ -89,6 +89,13 @@ int main(int argc, char **argv) {
           message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
           std::cout<<message<<std::endl;
           send(client_fd, message.c_str(), message.length(), 0);
+      } else if(split_request[1].substr(0, 11) == "/user-agent") {
+          int user_agent_index = http_request.find("User-Agent: ");
+          int end_index = http_request.find("\r\n", user_agent_index);
+          std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
+          std::cout<<body<<std::endl;
+          std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length()) + "\r\n\r\n" + body;
+          send(client_fd, message.c_str(), message.length(), 0);
       } else {
           send(client_fd, http_reject, strlen(http_reject), 0);
       }
