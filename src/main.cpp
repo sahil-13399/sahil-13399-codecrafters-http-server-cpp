@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
+#include <thread>
 
 std::vector<std::string> split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
@@ -18,6 +19,37 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
         tokens.push_back(token);
     }
     return tokens;
+}
+
+void handle_request(int client_fd) {
+    char buffer[1024];
+    const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
+    const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";    
+    std::cout << "Client connected\n";
+
+        ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
+        buffer[n] = '\0';
+        std::string http_request(buffer);
+        std::vector<std::string> split_request = split(http_request,' ');
+
+        if(split_request[1] == "/") {
+            send(client_fd, http_response, strlen(http_response), 0);
+        } else if(split_request[1].substr(0, 6) == "/echo/") {
+            //ECHO MESSAGE BACK in RESPONSE BODY
+            int len = split_request[1].length() - 6;
+            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
+            message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
+            send(client_fd, message.c_str(), message.length(), 0);
+        } else if(split_request[1].substr(0, 11) == "/user-agent") {
+            int user_agent_index = http_request.find("User-Agent: ");
+            int end_index = http_request.find("\r\n", user_agent_index);
+            std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
+            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4) + "\r\n\r\n" + body;
+            send(client_fd, message.c_str(), message.length(), 0);
+        } else {
+            send(client_fd, http_reject, strlen(http_reject), 0);
+        }
+      close(client_fd);
 }
 
 int main(int argc, char **argv) {
@@ -64,40 +96,10 @@ int main(int argc, char **argv) {
   int client_addr_len = sizeof(client_addr);
   
   std::cout << "Waiting for a client to connect...\n";
-  
 
-  
-  const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
-  const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";
-
-  char buffer[1024];
   while(true) {
       int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-      std::cout << "Client connected\n";
-
-      ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
-      buffer[n] = '\0';
-      std::string http_request(buffer);
-      std::vector<std::string> split_request = split(http_request,' ');
-
-      if(split_request[1] == "/") {
-          send(client_fd, http_response, strlen(http_response), 0);
-      } else if(split_request[1].substr(0, 6) == "/echo/") {
-          //ECHO MESSAGE BACK in RESPONSE BODY
-          int len = split_request[1].length() - 6;
-          std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-          message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
-          send(client_fd, message.c_str(), message.length(), 0);
-      } else if(split_request[1].substr(0, 11) == "/user-agent") {
-          int user_agent_index = http_request.find("User-Agent: ");
-          int end_index = http_request.find("\r\n", user_agent_index);
-          std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
-          std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4) + "\r\n\r\n" + body;
-          send(client_fd, message.c_str(), message.length(), 0);
-      } else {
-          send(client_fd, http_reject, strlen(http_reject), 0);
-      }
-      close(client_fd);
+      std::thread(handle_request, client_fd).detach();
   }
   close(server_fd);
 
