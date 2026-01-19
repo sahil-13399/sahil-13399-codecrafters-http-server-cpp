@@ -48,21 +48,36 @@ void handle_request(int client_fd, std::string directory) {
             std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4) + "\r\n\r\n" + body;
             send(client_fd, message.c_str(), message.length(), 0);
         } else if(split_request[1].substr(0, 7) == "/files/") {
-            std::string filename = split_request[1].substr(7);
-            std::string path = directory + filename;
-            std::fstream file(path, std::ios::in);
-            if (!file) {
-                std::cerr << "Error opening the file for writing.";
-                send(client_fd, http_reject, strlen(http_reject), 0);
+
+            if(split_request[0] == "POST") {
+              // std::cout<<split_request[split_request.size() - 1]<<" "<<split_request[split_request.size() - 1].length()<<std::endl;
+              std::string body = split_request[split_request.size() - 1].substr(4);
+              std::string filename = split_request[1].substr(7);
+              std::string path = directory + filename;
+              std::fstream file(path, std::ios::out);
+              file<<body;
+              const char* created_response = "HTTP/1.1 201 Created\r\n\r\n";
+              send(client_fd, created_response, strlen(created_response), 0);
+              file.close();
             } else {
-              std::string content = "";
-              std::string temp;
-              while(std::getline(file, temp)) {
-                content+=temp;
+              std::string filename = split_request[1].substr(7);
+              std::string path = directory + filename;
+              std::fstream file(path, std::ios::in);
+              if (!file) {
+                  std::cerr << "Error opening the file for writing.";
+                  send(client_fd, http_reject, strlen(http_reject), 0);
+              } else {
+                std::string content = "";
+                std::string temp;
+                while(std::getline(file, temp)) {
+                  content+=temp;
+                }
+                std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length()) + "\r\n\r\n" + content;
+                send(client_fd, message.c_str(), message.length(), 0);
               }
-              std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length()) + "\r\n\r\n" + content;
-              send(client_fd, message.c_str(), message.length(), 0);
+              file.close();
             }
+            
         } else {
             send(client_fd, http_reject, strlen(http_reject), 0);
         }
