@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
       } else if(split_request[1].substr(0, 6) == "/echo/") {
           //ECHO MESSAGE BACK in RESPONSE BODY
           int len = split_request[1].length() - 6;
-          std::string message = std::string(http_response) + "Content-Type: text/plain\r\nContent-Length: ";
+          std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
           message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
           std::cout<<message<<std::endl;
           send(client_fd, message.c_str(), message.length(), 0);
