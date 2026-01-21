@@ -62,16 +62,23 @@ void handle_request(int client_fd, std::string directory) {
             KeepAliveAdd(message, keep_alive);
             message += CRLF + split_request[1].substr(6, len);
             send(client_fd, message.c_str(), message.length(), 0);
-        } else if(split_request[1].substr(0, 11) == "/user-agent") {
-            int user_agent_index = http_request.find("User-Agent: ");
-            int end_index = http_request.find("\r\n", user_agent_index);
-            std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
-            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4);
-            KeepAliveAdd(message, keep_alive);
-            message += CRLF;
-            message += body;
-            send(client_fd, message.c_str(), message.length(), 0);
-        } else if(split_request[1].substr(0, 7) == "/files/") {
+        } else if (split_request[1].substr(0, 11) == "/user-agent") {
+              size_t ua_pos = http_request.find("User-Agent: ");
+              size_t start = ua_pos + std::strlen("User-Agent: ");
+              size_t end = http_request.find("\r\n", start);
+              std::string body = http_request.substr(start, end - start);
+
+              std::string message =
+                  "HTTP/1.1 200 OK\r\n"
+                  "Content-Type: text/plain\r\n"
+                  "Content-Length: " + std::to_string(body.size());
+
+              KeepAliveAdd(message, keep_alive);
+              message += "\r\n\r\n";
+              message += body;
+
+              send(client_fd, message.c_str(), message.size(), 0);
+          } else if(split_request[1].substr(0, 7) == "/files/") {
             if(split_request[0] == "POST") {
               // std::cout<<split_request[split_request.size() - 1]<<" "<<split_request[split_request.size() - 1].length()<<std::endl;
               int last_index = http_request.rfind("\r\n");
