@@ -28,8 +28,21 @@ void KeepAliveAdd(std::string& response, bool keep_alive) {
   }
 }
 
+void CompressBody(std::string& message, bool compress_body) {
+  if(!compress_body) {
+    return;
+  }
+
+  int pos = message.rfind("\r\n\r\n");
+  if(pos == std::string::npos || message.substr(pos + strlen("\r\n\r\n")) == "") {
+    return;
+  }
+  message.insert(pos, "\r\nContent-Encoding: gzip");
+}
+
 void handle_request(int client_fd, std::string directory) {
     bool keep_alive = true;
+    bool compress_body = true;
     while(keep_alive) {
       char buffer[4096];
       std::string http_response = "HTTP/1.1 200 OK";
@@ -49,6 +62,10 @@ void handle_request(int client_fd, std::string directory) {
             std::cout<<"Setting to False";
             keep_alive = false;
         }
+        if(http_request.find("Accept-Encoding: gzip") != std::string::npos) {
+            std::cout<<"Setting compression to TRUE";
+            compress_body = true;
+        }
         if(split_request[1] == "/") {
             KeepAliveAdd(http_response, keep_alive);
             http_response += CRLF;
@@ -61,6 +78,7 @@ void handle_request(int client_fd, std::string directory) {
             message += std::to_string(len); 
             KeepAliveAdd(message, keep_alive);
             message += CRLF + split_request[1].substr(6, len);
+            CompressBody(message, compress_body);
             send(client_fd, message.c_str(), message.length(), 0);
         } else if (split_request[1].substr(0, 11) == "/user-agent") {
               size_t ua_pos = http_request.find("User-Agent: ");
@@ -76,7 +94,7 @@ void handle_request(int client_fd, std::string directory) {
               KeepAliveAdd(message, keep_alive);
               message += "\r\n\r\n";
               message += body;
-
+              CompressBody(message, compress_body);
               send(client_fd, message.c_str(), message.size(), 0);
           } else if(split_request[1].substr(0, 7) == "/files/") {
             if(split_request[0] == "POST") {
@@ -91,6 +109,7 @@ void handle_request(int client_fd, std::string directory) {
               //std::cout<<body<<std::endl;
               KeepAliveAdd(created_response, keep_alive);
               created_response += CRLF;
+              CompressBody(created_response, compress_body);
               send(client_fd, created_response.c_str(), created_response.length(), 0);
               file.close();
             } else {
@@ -101,6 +120,7 @@ void handle_request(int client_fd, std::string directory) {
                    std::cerr << "Error opening the file for writing.";
                     KeepAliveAdd(http_reject, keep_alive);
                     http_reject += CRLF;
+                    CompressBody(http_reject, compress_body);
                     send(client_fd, http_reject.c_str(), http_reject.length(), 0);
               } else {
                 std::string content = "";
@@ -111,6 +131,7 @@ void handle_request(int client_fd, std::string directory) {
                 std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length());
                 KeepAliveAdd(message, keep_alive);
                 message += CRLF + content;
+                CompressBody(message, compress_body);
                 send(client_fd, message.c_str(), message.length(), 0);
               }
               file.close();
