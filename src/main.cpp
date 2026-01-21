@@ -62,7 +62,7 @@ void handle_request(int client_fd, std::string directory) {
             std::cout<<"Setting to False";
             keep_alive = false;
         }
-        if(http_request.find("Accept-Encoding: gzip") != std::string::npos) {
+        if(http_request.find("Accept-Encoding: ") != std::string::npos && http_request.find("gzip") != std::string::npos) {
             std::cout<<"Setting compression to TRUE";
             compress_body = true;
         }
