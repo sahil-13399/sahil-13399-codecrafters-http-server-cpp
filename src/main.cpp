@@ -39,7 +39,7 @@ void handle_request(int client_fd, std::string directory) {
 
         ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
         if(n <= 0) {
-          keep_alive = false;
+          break;
         }
         buffer[n] = '\0';
         std::string http_request(buffer);
@@ -89,7 +89,7 @@ void handle_request(int client_fd, std::string directory) {
               std::string path = directory + filename;
               std::fstream file(path, std::ios::in);
               if (!file) {
-                  std::cerr << "Error opening the file for writing.";
+                   std::cerr << "Error opening the file for writing.";
                     KeepAliveAdd(http_reject, keep_alive);
                     http_reject += CRLF;
                     send(client_fd, http_reject.c_str(), http_reject.length(), 0);
