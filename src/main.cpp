@@ -23,12 +23,16 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
 }
 
 void handle_request(int client_fd, std::string directory) {
-    char buffer[1024];
+    while(true) {
+      char buffer[1024];
     const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
     const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";    
     std::cout << "Client connected\n";
 
         ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
+        if(n <= 0) {
+          break;
+        }
         buffer[n] = '\0';
         std::string http_request(buffer);
         std::vector<std::string> split_request = split(http_request,' ');
@@ -83,7 +87,8 @@ void handle_request(int client_fd, std::string directory) {
         } else {
             send(client_fd, http_reject, strlen(http_reject), 0);
         }
-      close(client_fd);
+    }
+    close(client_fd);
 }
 
 int main(int argc, char **argv) {
