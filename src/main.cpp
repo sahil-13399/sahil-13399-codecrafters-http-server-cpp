@@ -68,7 +68,8 @@ void handle_request(int client_fd, std::string directory) {
             std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
             std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4);
             KeepAliveAdd(message, keep_alive);
-            message += CRLF + body;
+            message += CRLF;
+            message += body;
             send(client_fd, message.c_str(), message.length(), 0);
         } else if(split_request[1].substr(0, 7) == "/files/") {
             if(split_request[0] == "POST") {
