@@ -31,11 +31,11 @@ void KeepAliveAdd(std::string& response, bool keep_alive) {
 void handle_request(int client_fd, std::string directory) {
     bool keep_alive = true;
     while(keep_alive) {
-      char buffer[1024];
-    std::string http_response = "HTTP/1.1 200 OK";
-    std::string http_reject = "HTTP/1.1 404 Not Found";  
-    std::string CRLF = "\r\n\r\n";  
-    std::cout << "Client connected\n";
+      char buffer[4096];
+      std::string http_response = "HTTP/1.1 200 OK";
+      std::string http_reject = "HTTP/1.1 404 Not Found";  
+      std::string CRLF = "\r\n\r\n";  
+      std::cout << "Client connected\n";
 
         ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
         if(n <= 0) {
@@ -43,6 +43,7 @@ void handle_request(int client_fd, std::string directory) {
         }
         buffer[n] = '\0';
         std::string http_request(buffer);
+        std::cout<<"Received request "<<http_request; 
         std::vector<std::string> split_request = split(http_request,' ');
         if(http_request.find("Connection: close") != std::string::npos) {
             std::cout<<"Setting to False";
