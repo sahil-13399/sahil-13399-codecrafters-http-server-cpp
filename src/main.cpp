@@ -11,7 +11,9 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
-#include "main.h"
+
+
+std::vector<std::string> split(const std::string& s, char delimiter);
 
 void HandleSingleRequest(int client_fd, std::string directory, std::string http_request)
 {
@@ -85,6 +87,7 @@ void HandleSingleRequest(int client_fd, std::string directory, std::string http_
     send(client_fd, http_reject, strlen(http_reject), 0);
   }
 }
+
 std::vector<std::string> split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
     std::string token;
@@ -112,9 +115,7 @@ void handle_request(int client_fd, std::string directory) {
           if(http_request.find("Connection: close") != std::string::npos) {
             keep_alive = false;
           }
-        std::thread([client_fd, directory, http_request]() {
-            HandleSingleRequest(client_fd, directory, http_request);
-        }).detach();
+        std::thread(HandleSingleRequest, client_fd, directory, http_request).detach();
     }
     close(client_fd);
 }
