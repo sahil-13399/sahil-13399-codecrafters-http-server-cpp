@@ -36,7 +36,7 @@ void handle_request(int client_fd, std::string directory) {
         buffer[n] = '\0';
         std::string http_request(buffer);
         std::vector<std::string> split_request = split(http_request,' ');
-        if(http_request.find("Connection: close") != std::string::npos) {
+        if(http_request.find("Connection: close")) {
             break;
         }
         if(split_request[1] == "/") {
