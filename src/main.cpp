@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
+#include <zlib.h>
 
 std::vector<std::string> split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
@@ -28,6 +29,43 @@ void KeepAliveAdd(std::string& response, bool keep_alive) {
   }
 }
 
+std::string compress_gzip(const std::string& str, int compressionlevel = Z_DEFAULT_COMPRESSION) {
+    z_stream zs; // zlib's control structure
+    memset(&zs, 0, sizeof(zs));
+
+    // Initialize the zlib stream for compression with gzip format
+    if (deflateInit2(&zs, compressionlevel, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        throw(std::runtime_error("deflateInit2 failed while compressing."));
+    }
+
+    zs.next_in = (Bytef*)str.data();
+    zs.avail_in = str.size();
+
+    int ret;
+    char outbuffer[32768];
+    std::string outstring;
+
+    // Retrieve the compressed bytes block-wise
+    do {
+        zs.next_out = (Bytef*)outbuffer;
+        zs.avail_out = sizeof(outbuffer);
+
+        ret = deflate(&zs, Z_FINISH);
+
+        if (outstring.size() < zs.total_out) {
+            outstring.append(outbuffer, zs.total_out - outstring.size());
+        }
+    } while (ret == Z_OK); // Keep going until the stream is finished (Z_STREAM_END) or an error occurs
+
+    deflateEnd(&zs);
+
+    if (ret != Z_STREAM_END) { // an error occurred
+        throw(std::runtime_error("Exception during zlib compression: " + std::string(zs.msg)));
+    }
+
+    return outstring;
+}
+
 void CompressBody(std::string& message, bool compress_body) {
   if(!compress_body) {
     return;
@@ -38,6 +76,15 @@ void CompressBody(std::string& message, bool compress_body) {
     return;
   }
   message.insert(pos, "\r\nContent-Encoding: gzip");
+
+  std::string body = message.substr(pos + strlen("\r\n\r\n"));
+  int body_len = body.length();
+  body = compress_gzip(body);
+  message.replace(pos + strlen("\r\n\r\n"), body_len, body);
+  int content_length_pos = message.find("Content-Length: ");
+  int end_pos_cl = message.find("\r\n", content_length_pos);
+  int start_pos_cl = content_length_pos + strlen("Content-Length: ");
+  message.replace(start_pos_cl, end_pos_cl - start_pos_cl, std::to_string(body.length()));
 }
 
 void handle_request(int client_fd, std::string directory) {
