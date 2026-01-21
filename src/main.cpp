@@ -22,39 +22,54 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return tokens;
 }
 
+void KeepAliveAdd(std::string& response, bool keep_alive) {
+  if(!keep_alive) {
+    response += "\r\nConnection: close";
+  }
+}
+
 void handle_request(int client_fd, std::string directory) {
-    while(true) {
+    bool keep_alive = true;
+    while(keep_alive) {
       char buffer[1024];
-    const char *http_response = "HTTP/1.1 200 OK\r\n\r\n";
-    const char* http_reject = "HTTP/1.1 404 Not Found\r\n\r\n";    
+    std::string http_response = "HTTP/1.1 200 OK";
+    std::string http_reject = "HTTP/1.1 404 Not Found";  
+    std::string CRLF = "\r\n\r\n";  
     std::cout << "Client connected\n";
 
         ssize_t n = recv(client_fd, buffer, sizeof(buffer),0 );
         if(n <= 0) {
-          break;
+          keep_alive = false;
         }
         buffer[n] = '\0';
         std::string http_request(buffer);
         std::vector<std::string> split_request = split(http_request,' ');
         if(http_request.find("Connection: close") != std::string::npos) {
-            break;
+            std::cout<<"Setting to False";
+            keep_alive = false;
         }
         if(split_request[1] == "/") {
-            send(client_fd, http_response, strlen(http_response), 0);
+            KeepAliveAdd(http_response, keep_alive);
+            http_response += CRLF;
+            std::cout<<http_response;
+            send(client_fd, http_response.c_str(), http_response.length(), 0);
         } else if(split_request[1].substr(0, 6) == "/echo/") {
             //ECHO MESSAGE BACK in RESPONSE BODY
             int len = split_request[1].length() - 6;
             std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-            message += std::to_string(len) + "\r\n\r\n" + split_request[1].substr(6, len);
+            message += std::to_string(len); 
+            KeepAliveAdd(message, keep_alive);
+            message += CRLF + split_request[1].substr(6, len);
             send(client_fd, message.c_str(), message.length(), 0);
         } else if(split_request[1].substr(0, 11) == "/user-agent") {
             int user_agent_index = http_request.find("User-Agent: ");
             int end_index = http_request.find("\r\n", user_agent_index);
             std::string body = http_request.substr(user_agent_index + strlen("User-Agent: "), end_index);
-            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4) + "\r\n\r\n" + body;
+            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.length() - 4);
+            KeepAliveAdd(message, keep_alive);
+            message += CRLF + body;
             send(client_fd, message.c_str(), message.length(), 0);
         } else if(split_request[1].substr(0, 7) == "/files/") {
-
             if(split_request[0] == "POST") {
               // std::cout<<split_request[split_request.size() - 1]<<" "<<split_request[split_request.size() - 1].length()<<std::endl;
               int last_index = http_request.rfind("\r\n");
@@ -63,9 +78,11 @@ void handle_request(int client_fd, std::string directory) {
               std::string path = directory + filename;
               std::fstream file(path, std::ios::out);
               file<<body;
-              const char* created_response = "HTTP/1.1 201 Created\r\n\r\n";
-              std::cout<<body<<std::endl;
-              send(client_fd, created_response, strlen(created_response), 0);
+              std::string created_response = "HTTP/1.1 201 Created";
+              //std::cout<<body<<std::endl;
+              KeepAliveAdd(created_response, keep_alive);
+              created_response += CRLF;
+              send(client_fd, created_response.c_str(), created_response.length(), 0);
               file.close();
             } else {
               std::string filename = split_request[1].substr(7);
@@ -73,21 +90,27 @@ void handle_request(int client_fd, std::string directory) {
               std::fstream file(path, std::ios::in);
               if (!file) {
                   std::cerr << "Error opening the file for writing.";
-                  send(client_fd, http_reject, strlen(http_reject), 0);
+                    KeepAliveAdd(http_reject, keep_alive);
+                    http_reject += CRLF;
+                    send(client_fd, http_reject.c_str(), http_reject.length(), 0);
               } else {
                 std::string content = "";
                 std::string temp;
                 while(std::getline(file, temp)) {
                   content+=temp;
                 }
-                std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length()) + "\r\n\r\n" + content;
+                std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length());
+                KeepAliveAdd(message, keep_alive);
+                message += CRLF + content;
                 send(client_fd, message.c_str(), message.length(), 0);
               }
               file.close();
             }
             
         } else {
-            send(client_fd, http_reject, strlen(http_reject), 0);
+            KeepAliveAdd(http_reject, keep_alive);
+            http_reject += CRLF;
+            send(client_fd, http_reject.c_str(), http_reject.length(), 0);
         }
     }
     close(client_fd);
