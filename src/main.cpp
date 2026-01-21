@@ -76,7 +76,7 @@ void CompressBody(std::string& message, bool compress_body) {
     return;
   }
   message.insert(pos, "\r\nContent-Encoding: gzip");
-
+  pos = message.rfind("\r\n\r\n");
   std::string body = message.substr(pos + strlen("\r\n\r\n"));
   int body_len = body.length();
   body = compress_gzip(body);
