@@ -42,7 +42,7 @@ void CompressBody(std::string& message, bool compress_body) {
 
 void handle_request(int client_fd, std::string directory) {
     bool keep_alive = true;
-    bool compress_body = true;
+    bool compress_body = false;
     while(keep_alive) {
       char buffer[4096];
       std::string http_response = "HTTP/1.1 200 OK";
