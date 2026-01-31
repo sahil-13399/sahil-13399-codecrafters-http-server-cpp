@@ -12,6 +12,8 @@
 #include <vector>
 #include <thread>
 #include <zlib.h>
+#include "utils/string_utils.hpp"
+#include "exchanges/http_response.cpp"
 
 std::vector<std::string> split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
@@ -23,9 +25,9 @@ std::vector<std::string> split(const std::string& s, char delimiter) {
     return tokens;
 }
 
-void KeepAliveAdd(std::string& response, bool keep_alive) {
+void KeepAliveAdd(HttpResponse httpResponse, bool keep_alive) {
   if(!keep_alive) {
-    response += "\r\nConnection: close";
+    httpResponse.addHeader("Connection","close");
   }
 }
 
@@ -66,25 +68,16 @@ std::string compress_gzip(const std::string& str, int compressionlevel = Z_DEFAU
     return outstring;
 }
 
-void CompressBody(std::string& message, bool compress_body) {
-  if(!compress_body) {
+void CompressBody(HttpResponse httpResponse, bool compress_body) {
+  if(!compress_body || httpResponse.getBody().empty()) {
     return;
   }
-
-  int pos = message.rfind("\r\n\r\n");
-  if(pos == std::string::npos || message.substr(pos + strlen("\r\n\r\n")) == "") {
-    return;
-  }
-  message.insert(pos, "\r\nContent-Encoding: gzip");
-  pos = message.rfind("\r\n\r\n");
-  std::string body = message.substr(pos + strlen("\r\n\r\n"));
+  httpResponse.addHeader("Content-Encoding","gzip");
+  std::string body = httpResponse.getBody();
   int body_len = body.length();
   body = compress_gzip(body);
-  message.replace(pos + strlen("\r\n\r\n"), body_len, body);
-  int content_length_pos = message.find("Content-Length: ");
-  int end_pos_cl = message.find("\r\n", content_length_pos);
-  int start_pos_cl = content_length_pos + strlen("Content-Length: ");
-  message.replace(start_pos_cl, end_pos_cl - start_pos_cl, std::to_string(body.length()));
+  httpResponse.setBody(body);
+  httpResponse.addHeader("Content-Length", std::to_string(body.length()));
 }
 
 void handle_request(int client_fd, std::string directory) {
@@ -104,6 +97,7 @@ void handle_request(int client_fd, std::string directory) {
         buffer[n] = '\0';
         std::string http_request(buffer);
         std::cout<<"Received request "<<http_request; 
+        HttpRequest httpRequest = getHttpRequest(http_request);
         std::vector<std::string> split_request = split(http_request,' ');
         if(http_request.find("Connection: close") != std::string::npos) {
             std::cout<<"Setting to False";
@@ -113,51 +107,46 @@ void handle_request(int client_fd, std::string directory) {
             std::cout<<"Setting compression to TRUE";
             compress_body = true;
         }
-        if(split_request[1] == "/") {
-            KeepAliveAdd(http_response, keep_alive);
-            http_response += CRLF;
-            std::cout<<http_response;
-            send(client_fd, http_response.c_str(), http_response.length(), 0);
-        } else if(split_request[1].substr(0, 6) == "/echo/") {
+        if(httpRequest.getPath() == "/") {
+            HttpResponse httpResponse;
+            KeepAliveAdd(httpResponse, keep_alive);
+            httpResponse.setHttpStatus(http_response);
+            std::string finalMessage = httpResponse.build();
+            send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
+        } else if(httpRequest.getPath().substr(0, 6) == "/echo/") {
             //ECHO MESSAGE BACK in RESPONSE BODY
-            int len = split_request[1].length() - 6;
-            std::string message = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ";
-            message += std::to_string(len); 
-            KeepAliveAdd(message, keep_alive);
-            message += CRLF + split_request[1].substr(6, len);
-            CompressBody(message, compress_body);
-            send(client_fd, message.c_str(), message.length(), 0);
-        } else if (split_request[1].substr(0, 11) == "/user-agent") {
-              size_t ua_pos = http_request.find("User-Agent: ");
-              size_t start = ua_pos + std::strlen("User-Agent: ");
-              size_t end = http_request.find("\r\n", start);
-              std::string body = http_request.substr(start, end - start);
-
-              std::string message =
-                  "HTTP/1.1 200 OK\r\n"
-                  "Content-Type: text/plain\r\n"
-                  "Content-Length: " + std::to_string(body.size());
-
-              KeepAliveAdd(message, keep_alive);
-              message += "\r\n\r\n";
-              message += body;
-              CompressBody(message, compress_body);
-              send(client_fd, message.c_str(), message.size(), 0);
-          } else if(split_request[1].substr(0, 7) == "/files/") {
-            if(split_request[0] == "POST") {
-              // std::cout<<split_request[split_request.size() - 1]<<" "<<split_request[split_request.size() - 1].length()<<std::endl;
-              int last_index = http_request.rfind("\r\n");
-              std::string body = http_request.substr(last_index + strlen("\r\n"));
-              std::string filename = split_request[1].substr(7);
+            int len = httpRequest.getPath().length() - 6;
+            HttpResponse httpResponse;
+            httpResponse.setHttpStatus(http_response);
+            KeepAliveAdd(httpResponse, keep_alive);
+            httpResponse.addHeader("Content-Type", "text/plain").addHeader("Content-Length", std::to_string(len));
+            httpResponse.setBody(httpRequest.getPath().substr(6, len));
+            CompressBody(httpResponse, compress_body);
+            std::string finalMessage = httpResponse.build();
+            send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
+        } else if (httpRequest.getPath().substr(0, 11) == "/user-agent") {
+              std::string body = httpRequest.getHeaders().at("User-Agent:");
+              HttpResponse httpResponse;
+              httpResponse.setHttpStatus(http_response);
+              httpResponse.setBody(body);
+              httpResponse.addHeader("Content-Type", "text/plain").addHeader("Content-Length", std::to_string(body.length()));
+              KeepAliveAdd(httpResponse, keep_alive);
+              CompressBody(httpResponse, compress_body);
+              std::string finalMessage = httpResponse.build();
+              send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
+          } else if(httpRequest.getPath().substr(0, 7) == "/files/") {
+            if(httpRequest.getMethod() == "POST") {
+              std::string body = httpRequest.getBody();
+              std::string filename = httpRequest.getPath().substr(7);
               std::string path = directory + filename;
               std::fstream file(path, std::ios::out);
               file<<body;
-              std::string created_response = "HTTP/1.1 201 Created";
-              //std::cout<<body<<std::endl;
-              KeepAliveAdd(created_response, keep_alive);
-              created_response += CRLF;
-              CompressBody(created_response, compress_body);
-              send(client_fd, created_response.c_str(), created_response.length(), 0);
+              HttpResponse httpResponse;
+              httpResponse.setHttpStatus("HTTP/1.1 201 Created");
+              KeepAliveAdd(httpResponse, keep_alive);
+             
+              std::string finalMessage = httpResponse.build();
+              send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
               file.close();
             } else {
               std::string filename = split_request[1].substr(7);
@@ -165,29 +154,36 @@ void handle_request(int client_fd, std::string directory) {
               std::fstream file(path, std::ios::in);
               if (!file) {
                    std::cerr << "Error opening the file for writing.";
-                    KeepAliveAdd(http_reject, keep_alive);
-                    http_reject += CRLF;
-                    CompressBody(http_reject, compress_body);
-                    send(client_fd, http_reject.c_str(), http_reject.length(), 0);
+                   HttpResponse httpResponse;
+                    KeepAliveAdd(httpResponse, keep_alive);
+                    httpResponse.setHttpStatus(http_reject);
+                    CompressBody(httpResponse, compress_body);
+                    std::string finalMessage = httpResponse.build();
+                    send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
               } else {
                 std::string content = "";
                 std::string temp;
                 while(std::getline(file, temp)) {
                   content+=temp;
                 }
-                std::string message = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " + std::to_string(content.length());
-                KeepAliveAdd(message, keep_alive);
-                message += CRLF + content;
-                CompressBody(message, compress_body);
-                send(client_fd, message.c_str(), message.length(), 0);
+                HttpResponse httpResponse;
+                httpResponse.setHttpStatus(http_response);
+                httpResponse.setBody(content);
+                httpResponse.addHeader("Content-Type", "application/octet-stream").addHeader("Content-Length", std::to_string(content.length()));
+                KeepAliveAdd(httpResponse, keep_alive);
+                CompressBody(httpResponse, compress_body);
+                std::string finalMessage = httpResponse.build();
+                send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
               }
               file.close();
             }
             
         } else {
-            KeepAliveAdd(http_reject, keep_alive);
-            http_reject += CRLF;
-            send(client_fd, http_reject.c_str(), http_reject.length(), 0);
+            HttpResponse httpResponse;
+            KeepAliveAdd(httpResponse, keep_alive);
+            httpResponse.setHttpStatus(http_reject);
+            std::string finalMessage = httpResponse.build();
+            send(client_fd, finalMessage.c_str(), finalMessage.length(), 0);
         }
     }
     close(client_fd);
