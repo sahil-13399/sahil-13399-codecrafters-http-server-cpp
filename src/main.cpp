@@ -13,6 +13,7 @@
 #include <thread>
 #include <zlib.h>
 #include "route_handler.hpp"
+#include "concurrency/http_thread_pool.hpp"
 
 
 void handle_request(int client_fd, std::string directory) {
@@ -95,7 +96,11 @@ int main(int argc, char **argv) {
 
   while(true) {
       int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-      std::thread(handle_request, client_fd, argv[2]).detach();
+      HttpThreadPool pool(10);
+      std::string directory = argv[2];
+      pool.enqueue([client_fd, directory]() {
+        return handle_request(client_fd, directory);
+      });
   }
   close(server_fd);
 
