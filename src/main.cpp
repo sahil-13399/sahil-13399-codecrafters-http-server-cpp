@@ -93,11 +93,10 @@ int main(int argc, char **argv) {
   int client_addr_len = sizeof(client_addr);
   
   std::cout << "Waiting for a client to connect...\n";
-
+  HttpThreadPool pool(20);
+  std::string directory = argv[2];
   while(true) {
       int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-      HttpThreadPool pool(20);
-      std::string directory = argv[2];
       pool.enqueue([client_fd, directory]() {
         return handle_request(client_fd, directory);
       });
