@@ -91,11 +91,10 @@ std::string compress_gzip(const std::string& str, int compressionlevel = Z_DEFAU
     return outstring;
 }
 
-void CompressBodyAdd(HttpResponse httpResponse, bool compress_body) {
-  if(!compress_body || httpResponse.getBody().empty()) {
+void CompressBodyAdd(HttpResponse& httpResponse, bool compress_body) {
+  if(!compress_body) {
     return;
   }
-  httpResponse.addHeader("Content-Encoding","gzip");
   std::string body = httpResponse.getBody();
   int body_len = body.length();
   body = compress_gzip(body);
@@ -104,7 +103,7 @@ void CompressBodyAdd(HttpResponse httpResponse, bool compress_body) {
   .addHeader("Content-Encoding", "gzip");
 }
 
-void KeepAliveAdd(HttpResponse httpResponse, bool keep_alive) {
+void KeepAliveAdd(HttpResponse& httpResponse, bool keep_alive) {
   if(!keep_alive) {
     httpResponse.addHeader("Connection","close");
   }
