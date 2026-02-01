@@ -1,10 +1,12 @@
 #include "route_handler.hpp"
 #include "utils/string_utils.hpp"
 #include <fstream>
+#include<iostream>
 //IMPLEMENTATIONS
 
 HttpResponse RouteHandler::handleRoute(HttpRequest httpRequest, bool keep_alive, bool compress_body) {
     HttpResponse httpResponse;
+    std::cout<<"Received Request in Handler"<<std::endl;
     if(httpRequest.getPath() == "/") {
         emptyPathHandler(httpRequest, httpResponse);
     } else if(httpRequest.getPath().substr(0, 6) == "/echo/") {

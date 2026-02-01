@@ -1,7 +1,7 @@
 #include<vector>
 #include<string>
-#include "../exchanges/http_request.cpp"
-#include "../exchanges/http_response.cpp"
+#include "../exchanges/http_request.hpp"
+#include "../exchanges/http_response.hpp"
 
 std::vector<std::string> splitStringByStringDelimiter(const std::string& input, const std::string& delimiter);
 

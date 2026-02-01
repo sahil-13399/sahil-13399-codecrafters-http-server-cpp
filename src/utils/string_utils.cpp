@@ -23,28 +23,29 @@ HttpRequest getHttpRequest(std::string request) {
     std::string pathMethodLine = requestLine[0];
     int pos = pathMethodLine.find(" ");
     std::string method = pathMethodLine.substr(0, pos);
-    int pos2 = pathMethodLine.find(" ", pos);
+    int pos2 = pathMethodLine.rfind(" ");
     std::string path = pathMethodLine.substr(pos + 1, pos2 - (pos + 1));
-    std::cout<<path<<" || "<<method;
     //Read headers
     std::unordered_map<std::string, std::string> headers;
     int index = 0;
     for(auto str : requestLine) {
+        if(index == 0) {
+            index++;
+            continue;
+        }
         if(str == "") {
             break;
         }
         index++;
         int pos = str.find(" ");
         headers.insert({str.substr(0, pos), str.substr(pos + 1)});
-        std::cout<<"Pair"<<str.substr(0, pos)<<" "<<str.substr(pos + 1);
     }
     std::string body = "";
     while(index < requestLine.size()) {
-        body += requestLine[index];
+        body += requestLine[index++];
     }
     std::cout<<"Body : "<<body;
     return HttpRequest(method, path, body, headers);
-
 }
 
 std::string compress_gzip(const std::string& str, int compressionlevel = Z_DEFAULT_COMPRESSION) {

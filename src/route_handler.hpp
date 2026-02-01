@@ -1,7 +1,7 @@
 #include<string>
 #include<vector>
-#include "exchanges/http_request.cpp"
-#include "exchanges/http_response.cpp"
+#include "utils/string_utils.hpp"
+
 /*
 Design plan
 1. class RouteHandler stores path, client_fd, directory, keep_alive, constexpr of success and fail strings
@@ -32,6 +32,6 @@ class RouteHandler {
         //Constructors
         RouteHandler() = default;
         RouteHandler(std::string path, std::string directory) : path(path), directory(directory) {}
-        
+
         HttpResponse handleRoute(HttpRequest httpRequest, bool keep_alive, bool compress_body);
 };
