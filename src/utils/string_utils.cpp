@@ -100,7 +100,8 @@ void CompressBodyAdd(HttpResponse httpResponse, bool compress_body) {
   int body_len = body.length();
   body = compress_gzip(body);
   httpResponse.setBody(body);
-  httpResponse.addHeader("Content-Length", std::to_string(body.length()));
+  httpResponse.addHeader("Content-Length", std::to_string(body.length()))
+  .addHeader("Content-Encoding", "gzip");
 }
 
 void KeepAliveAdd(HttpResponse httpResponse, bool keep_alive) {
