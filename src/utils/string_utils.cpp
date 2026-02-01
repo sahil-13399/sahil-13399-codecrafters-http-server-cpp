@@ -1,5 +1,11 @@
-#include<sstream>
-#include<iostream>
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
+#include <string>
+#include <cstring>
+#include <unistd.h>
+#include <sys/types.h>
 #include "string_utils.hpp"
 #include<unordered_map>
 #include <zlib.h>
