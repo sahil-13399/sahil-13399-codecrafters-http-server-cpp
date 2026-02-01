@@ -12,7 +12,7 @@ class HttpResponse{
     public:
         HttpResponse() = default;
 
-        HttpResponse(std::string& httpStatus, int status, std::string& body, std::unordered_map<std::string, std::string>& headers) : httpStatus(httpStatus), body(body), headers(headers) {}
+        HttpResponse(const std::string& httpStatus,const  int status,const std::string& body,const std::unordered_map<std::string, std::string>& headers) : httpStatus(httpStatus), body(body), headers(headers) {}
         
         std::string build() const {
             std::string response = httpStatus + "\r\n";

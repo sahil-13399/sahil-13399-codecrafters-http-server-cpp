@@ -2,6 +2,7 @@
 #include<iostream>
 #include "string_utils.hpp"
 #include<unordered_map>
+#include <zlib.h>
 
 std::vector<std::string> splitStringByStringDelimiter(const std::string& input, const std::string& delimiter) {
     std::vector<std::string> tokens;
@@ -44,3 +45,59 @@ HttpRequest getHttpRequest(std::string request) {
     std::cout<<"Body : "<<body;
     return HttpRequest(method, path, body, headers);
 
+}
+
+std::string compress_gzip(const std::string& str, int compressionlevel = Z_DEFAULT_COMPRESSION) {
+    z_stream zs; // zlib's control structure
+    memset(&zs, 0, sizeof(zs));
+
+    // Initialize the zlib stream for compression with gzip format
+    if (deflateInit2(&zs, compressionlevel, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        throw(std::runtime_error("deflateInit2 failed while compressing."));
+    }
+
+    zs.next_in = (Bytef*)str.data();
+    zs.avail_in = str.size();
+
+    int ret;
+    char outbuffer[32768];
+    std::string outstring;
+
+    // Retrieve the compressed bytes block-wise
+    do {
+        zs.next_out = (Bytef*)outbuffer;
+        zs.avail_out = sizeof(outbuffer);
+
+        ret = deflate(&zs, Z_FINISH);
+
+        if (outstring.size() < zs.total_out) {
+            outstring.append(outbuffer, zs.total_out - outstring.size());
+        }
+    } while (ret == Z_OK); // Keep going until the stream is finished (Z_STREAM_END) or an error occurs
+
+    deflateEnd(&zs);
+
+    if (ret != Z_STREAM_END) { // an error occurred
+        throw(std::runtime_error("Exception during zlib compression: " + std::string(zs.msg)));
+    }
+
+    return outstring;
+}
+
+void CompressBodyAdd(HttpResponse httpResponse, bool compress_body) {
+  if(!compress_body || httpResponse.getBody().empty()) {
+    return;
+  }
+  httpResponse.addHeader("Content-Encoding","gzip");
+  std::string body = httpResponse.getBody();
+  int body_len = body.length();
+  body = compress_gzip(body);
+  httpResponse.setBody(body);
+  httpResponse.addHeader("Content-Length", std::to_string(body.length()));
+}
+
+void KeepAliveAdd(HttpResponse httpResponse, bool keep_alive) {
+  if(!keep_alive) {
+    httpResponse.addHeader("Connection","close");
+  }
+}

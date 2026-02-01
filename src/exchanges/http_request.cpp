@@ -12,7 +12,7 @@ class HttpRequest{
        std::unordered_map<std::string, std::string> headers;
 
     public:
-        HttpRequest(std::string& method, std::string& path, std::string& body, std::unordered_map<std::string, std::string>& headers) : method(method), path(path), body(body), headers(headers) {}
+        HttpRequest(const std::string& method, const std::string& path, const std::string& body, const std::unordered_map<std::string, const std::string>& headers) : method(method), path(path), body(body), headers(headers) {}
 
         // Getters
         const std::string& getMethod() const {
