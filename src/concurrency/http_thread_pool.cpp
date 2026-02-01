@@ -16,7 +16,7 @@ void HttpThreadPool::dequeue() {
         {
             std::unique_lock<std::mutex> lock(mutex);
             cv.wait(lock, [this]{
-                return shutdown_flag || data_ready;
+                return !worker_queue.empty() || shutdown_flag;
             });
             func = worker_queue.front();
             worker_queue.pop();
@@ -29,6 +29,7 @@ void HttpThreadPool::dequeue() {
 void HttpThreadPool::shutdown() {
     std::unique_lock<std::mutex> lock(mutex);
     shutdown_flag = true;
+    cv.notify_all();
     for(auto& t : thread_pool) {
         if(t.joinable()) {
             t.join();

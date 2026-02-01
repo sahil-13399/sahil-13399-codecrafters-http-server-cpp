@@ -22,7 +22,6 @@ class HttpThreadPool{
         std::queue<std::function<void()>> worker_queue;
         std::mutex mutex;
         std::condition_variable cv;
-        bool data_ready;
         bool shutdown_flag;
 
     public:
