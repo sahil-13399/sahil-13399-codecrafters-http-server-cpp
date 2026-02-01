@@ -19,13 +19,6 @@ void HttpThreadPool::dequeue() {
                 return !worker_queue.empty() || shutdown_flag;
             });
             
-            if(worker_queue.empty()) {
-                if(shutdown_flag) {
-                    return;
-                }
-                continue;
-            }
-            
             func = worker_queue.front();
             worker_queue.pop();
         }
